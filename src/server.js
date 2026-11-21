@@ -1,7 +1,13 @@
 import express from 'express';
 import cors from 'cors';
-import pino from 'pino-http';
 import dotenv from 'dotenv';
+
+import { connectMongoDB } from './db/connectMongoDB.js';
+import { logger } from './middleware/logger.js';
+import { notFoundHandler } from './middleware/notFoundHandler.js';
+import { errorHandler } from './middleware/errorHandler.js';
+
+import notesRoutes from './routes/notesRoutes.js';
 
 dotenv.config();
 
@@ -11,53 +17,19 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(
-  pino({
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        colorize: true,
-        translateTime: 'HH:MM:ss',
-        ignore: 'pid,hostname',
-      },
-    },
-  }),
-);
+app.use(logger);
 
-// Отримати всі нотатки
-app.get('/notes', (req, res) => {
-  res.status(200).json({
-    message: 'Retrieved all notes',
-  });
-});
+// Routes
+app.use(notesRoutes);
 
-// Отримати одну нотатку за ID
-app.get('/notes/:noteId', (req, res) => {
-  const { noteId } = req.params;
+// Middleware для неіснуючих маршрутів
+app.use(notFoundHandler);
 
-  res.status(200).json({
-    message: `Retrieved note with ID: ${noteId}`,
-  });
-});
+// Middleware для обробки помилок
+app.use(errorHandler);
 
-// Тестовий маршрут для перевірки помилок
-app.get('/test-error', () => {
-  throw new Error('Simulated server error');
-});
-
-// Middleware для неіснуючих маршрутів (404)
-app.use((req, res) => {
-  res.status(404).json({
-    message: 'Route not found',
-  });
-});
-
-// Middleware для обробки помилок (500)
-app.use((err, req, res, next) => {
-  res.status(500).json({
-    message: err.message,
-  });
-});
+// Підключення до MongoDB та запуск сервера
+await connectMongoDB();
 
 // Запуск сервера
 app.listen(PORT, () => {
